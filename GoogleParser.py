@@ -2,16 +2,35 @@ from bs4 import BeautifulSoup
 import re, sys, urllib
 import glob
 
+def googleUPC( upc ):
+    reg = "[1-9][0-9]+"
+    nzupc = re.findall( reg, upc )[0]
+    return '0'*(14-len(nzupc)) + nzupc
+
+def mkGoogleSUUrls( urls ):
+    base_url = 'http://www.google.com/%s/online?q=%s'
+    reg_url = '/(shopping/product/[0-9]+)?'
+    reg_upc = 'q=([0-9]+)'
+    def fixUrl( x ):
+        shp = re.findall( reg_url, x )
+        upc = re.findall( reg_upc, x )
+        furl = base_url % ( shp[0], upc[0] )
+        return furl
+    return map( fixUrl, urls )
+
+def splitUrls( urls ):
+    sp = [ x for x in urls if x.find('/shopping/product/') != -1 ]
+    ss = [ x for x in urls if x.find('/shopping/product/') == -1 ]
+    return ( sp , ss )
+
+def mkGoogleSrchUrls( upcs ):
+    base_url = 'https://www.google.com/search?output=search&tbm=shop&q=%s'
+    return [ base_url % ( googleUPC(x) ) for x in upcs ]
+
 class GoogleSU():
     """/shopping/product/ parser"""
     def __init__( self, data ):
         self.soup = BeautifulSoup( data, 'lxml' )
-        tg = self.soup.findAll( "span", "pag-n-to-n-txt" )
-        self.products = int( re.findall( 'of ([0-9]+)', tg[0].text )[0] )
-        if self.products > 10:
-            self.allprods = self.soup.findAll( "a", "pag-detail-link" )[0]['href']
-            ndata = self.fetchUrl( 'http://www.google.com' + self.allprods )
-            self.soup = BeautifulSoup( ndata, 'lxml' )
             
     def parse( self ):
         self.prods = self.soup.findAll( "span", "os-seller-name-primary" )
@@ -32,15 +51,3 @@ class GoogleSS():
         links = [ x['href'] for x in shpu ] +\
           [ x.findAll('a')[0]['href'] for x in durl ]
         return links
-
-if __name__ == '__main__':
-    files = glob.glob( 'GoogleCrawls21/*.html' )
-    for fil in files:
-        data = open( fil ).read()
-        gp = GoogleSS(data)
-        links = gp.parse()
-        if len( links ) > 0:
-            def prourl( x ):
-                return fil + '\t' + x
-            plinks = map( prourl, links )
-            sys.stdout.write( '\n'.join(plinks) + '\n' )
