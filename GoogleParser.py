@@ -40,7 +40,7 @@ class GoogleSU():
     def fetchUrl( self, url ):
         return urllib.urlopen( url ).read()
 
-class GoogleSS():
+class GoogleShopping():
     """Shopping Search Results Parser"""
     def __init__( self, data ):
         self.soup = BeautifulSoup( data, 'lxml' )
@@ -51,3 +51,32 @@ class GoogleSS():
         links = [ x['href'] for x in shpu ] +\
           [ x.findAll('a')[0]['href'] for x in durl ]
         return links
+
+    def numOfProds( self ):
+        prods = self.soup.findAll( 'div', 'pag-n-to-n-txt' )
+        rg = 'of ([0-9]+)' 
+        num = int(re.findAll( rg, prods[0].text )[0])
+
+    def getNextPage( self ):
+        pgBottom = self.soup.findAll( 'div', "goog-inline-block jfk-button jfk-button-standard jfk-button-narrow jfk-button-collapse-left" )
+        return pgBottom[0]['href']
+
+    def genUrls( self ):
+        nprods = self.numOfProds()
+        if nprods > 25:
+            npage = self.getNextPage()
+            npages = int(nprods/25)
+            startPages = [ 'start:' + str(25*(i+1)) for i in range(npages) ]
+            return [ 'http://www.google.com' + re.sub( 'start:25', x, npage ) for x in startPages ]
+        else:
+            return []
+        
+    
+class GoogleSearch():
+    def __init__( self, data ):
+        self.soup = BeautifulSoup( data, 'lxml' )
+
+    def parse( self ):
+        srchResults = self.soup.findAll( 'li', 'g' )
+        return [ x.findAll('a')[0]['href'] for x in srchResults ]
+
